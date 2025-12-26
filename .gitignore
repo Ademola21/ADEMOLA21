@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# Debug
+debug_slider/
+debug_slider_final/
+debug_slider_working/
+
+# Test outputs
+test_output.txt
+test_result.txt
+
+# Selenium
+selenium-wire-ca.crt
+
+# Node modules (for slider-captcha demo)
+slider-captcha/node_modules/
+slider-captcha/build/
+
+# Images (except model)
+*.png
+!debug_slider_working/match_result.png
+!debug_slider_working/after_drag.png
+
+# OS
+.DS_Store
+Thumbs.db

@@ -94,12 +94,27 @@ def dynamic_and_selection_solver(target_num, verbose, model):
     image = np.asarray(image)
     result = model.predict(image, task="detect", verbose=verbose)
 
-    # Get the index of the target number
+    # Get the index of the target number with confidence filtering
     target_index = []
+    confidences = []
     count = 0
+    confidence_threshold = 0.65  # Increased from 0.5 to reduce false positives
+    
     for num in result[0].boxes.cls:
-        if num == target_num: target_index.append(count)
+        conf = result[0].boxes.conf[count].item()
+        # Filter by confidence score to reduce false positives
+        if num == target_num and conf >= confidence_threshold:
+            target_index.append(count)
+            confidences.append(conf)
         count += 1
+    
+    if verbose:
+        total_detections = len(result[0].boxes.cls)
+        filtered_detections = len(target_index)
+        print(f"  YOLO: {total_detections} total detections, {filtered_detections} after confidence filter (>={confidence_threshold})")
+        if filtered_detections > 0:
+            avg_conf = sum(confidences) / len(confidences)
+            print(f"  Confidence scores: {[f'{c:.2f}' for c in confidences]} (avg: {avg_conf:.2f})")
 
     # Get the answers from the index
     answers = []
@@ -229,11 +244,25 @@ def square_solver(target_num, verbose, model):
     boxes = result[0].boxes.data
 
     target_index = []
+    confidences = []
     count = 0
+    confidence_threshold = 0.65  # Increased from 0.5 to reduce false positives
+    
     for num in result[0].boxes.cls:
-        if num == target_num:
+        conf = result[0].boxes.conf[count].item()
+        # Filter by confidence score to reduce false positives
+        if num == target_num and conf >= confidence_threshold:
             target_index.append(count)
+            confidences.append(conf)
         count += 1
+    
+    if verbose:
+        total_detections = len(result[0].boxes.cls)
+        filtered_detections = len(target_index)
+        print(f"  YOLO: {total_detections} total detections, {filtered_detections} after confidence filter (>={confidence_threshold})")
+        if filtered_detections > 0:
+            avg_conf = sum(confidences) / len(confidences)
+            print(f"  Confidence scores: {[f'{c:.2f}' for c in confidences]} (avg: {avg_conf:.2f})")
 
     for i in target_index:
         target_box = boxes[i]
@@ -349,20 +378,22 @@ def solve_recaptcha(driver, verbose):
                     img_urls = get_all_captcha_img_urls(driver)
                     download_img(0, img_urls[0])
                     answers = dynamic_and_selection_solver(target_num, verbose, model)
-                    if len(answers) > 2:
+                    if len(answers) >= 1:  # Changed from > 2 to >= 1
                         captcha = "dynamic"
                         break
                     else:
+                        if verbose: print("  No valid answers found, reloading...")
                         reload.click()
                 else:
                     if verbose: print("found a 3x3 one time selection captcha")
                     img_urls = get_all_captcha_img_urls(driver)
                     download_img(0, img_urls[0])
                     answers = dynamic_and_selection_solver(target_num, verbose, model)
-                    if len(answers) > 2:
+                    if len(answers) >= 1:  # Changed from > 2 to >= 1
                         captcha = "selection"
                         break
                     else:
+                        if verbose: print("  No valid answers found, reloading...")
                         reload.click()
                 WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
                     (By.XPATH, '(//div[@id="rc-imageselect-target"]//td)[1]')))
@@ -494,6 +525,14 @@ def solver(url: str, cookies: dict=None, proxy: str=None, verbose=False, headles
     for request in driver.requests:
         if 'recaptcha/api2/userverify' in request.url: token = find_between(request.response.body.decode('utf-8'), 'uvresp","', '"')
     cookies = driver.get_cookies()
+
+    # Keep browser open for visual verification
+    if verbose:
+        print("\n" + "="*60)
+        print("✓ CAPTCHA SOLVED! Browser will close in 10 seconds...")
+        print("  Please verify the checkbox is marked as solved.")
+        print("="*60)
+    sleep(10)
 
     # Close driver and return results
     driver.quit()
